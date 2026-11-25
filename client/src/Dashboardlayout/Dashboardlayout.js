@@ -33,6 +33,8 @@ import WarningsPage from "../Modules/Warnings/WarningsPage";
 import PolicyPackagesList from "../Modules/SuperAdminDashboard/PolicyPackages/List";
 import EventsList from "../Modules/SuperAdminDashboard/Events/List";
 import { can, normalizeRole } from "../Helpers/acl.js";
+import PlantOpsAccess from "../Modules/PlantOps/Access";
+import ClientRegistry from "../Modules/Vendors/Registry";
 
 
 
@@ -49,7 +51,7 @@ function DashboardLayout({ userRole }) {
     console.log("📍 Current path:", location.pathname);
   }, [location.pathname]);
 
-  // ✅ Universal layout styling
+  // ✅ Universal responsive layout styling
   return (
     <div className="AJ-dashboard min-h-screen flex">
       {/* Sidebar */}
@@ -61,20 +63,19 @@ function DashboardLayout({ userRole }) {
 
       {/* Right Section */}
       <div
-        className="flex flex-col transition-all duration-300 sm:ml-0 md:w-full right-section-all-pages "
-        style={{
-          width: isCollapsed ? "100%" : "82%",
-          marginLeft: isCollapsed ? "6%" : "15%",
-        }}
+        className={`flex flex-col flex-1 min-w-0 transition-all duration-300 right-section-all-pages ${
+          isCollapsed ? "sidebar-is-collapsed" : "sidebar-is-expanded"
+        }`}
       >
         <Header />
 
-        <main className="flex-1 mt-2 sm:mt-5"
-        >
-          <div className="`p-4 shadow min-h-[calc(100vh-2%)]` sm:p-0 sm:mt-5 !sm:ml-4 !md:ml-4">
+        <main className="flex-1 min-w-0">
+          <div className="p-4 sm:p-6 min-h-[calc(100vh-110px)]">
             <Routes>
               {/* ✅ Dashboard */}
               <Route index element={<Dashboard />} />
+              {roleKey === "superadmin" && <Route path="plant-ops" element={<PlantOpsAccess />} />}
+              {roleKey === "superadmin" && <Route path="clients" element={<ClientRegistry />} />}
 
               {/* ✅ Users */}
               <Route path="users" element={<GetUsers />} />

@@ -6695,3 +6695,109 @@ body {
     height: 240px;
   }
 }
+
+
+/* ==========================================================================
+   RESPONSIVE SIDEBAR & DASHBOARD SHELL OVERRIDES
+   Prevents fixed sidebar (270px / 80px) from overlapping page content
+   across desktop, laptop, tablet, and mobile viewports.
+   ========================================================================== */
+.AJ-dashboard {
+  display: flex;
+  justify-content: flex-start !important;
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: clip;
+}
+
+.right-section-all-pages {
+  min-width: 0;
+  box-sizing: border-box;
+  transition: margin-left 0.3s ease, width 0.3s ease;
+}
+
+.right-section-all-pages.sidebar-is-expanded {
+  margin-left: 270px !important;
+  width: calc(100% - 270px) !important;
+}
+
+.right-section-all-pages.sidebar-is-collapsed {
+  margin-left: 80px !important;
+  width: calc(100% - 80px) !important;
+}
+
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .mobile-sidebar-toggle {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 12px;
+    left: 14px;
+    z-index: 11112 !important;
+    width: 42px;
+    height: 42px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+    cursor: pointer;
+  }
+
+  .sidebar {
+    position: fixed !important;
+    top: 0;
+    left: 0 !important;
+    width: 270px !important;
+    height: 100vh;
+    z-index: 11111 !important;
+    transform: translateX(0) !important;
+    transition: transform 0.3s ease !important;
+  }
+
+  .sidebar.collapsed {
+    width: 270px !important;
+    left: 0 !important;
+    transform: translateX(-100%) !important;
+  }
+
+  .sidebar .sidebar-header {
+    top: 0 !important;
+    padding: 18px 18px 18px 66px !important;
+  }
+
+  .sidebar .sidebar-header .sidebar-toggler {
+    display: none !important;
+  }
+
+  .sidebar.collapsed .sidebar-nav .primary-nav,
+  .sidebar .sidebar-nav .primary-nav {
+    transform: none !important;
+    margin-top: 8px !important;
+    height: calc(100vh - 170px) !important;
+  }
+
+  .sidebar-backdrop {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(2px);
+    z-index: 11110 !important;
+  }
+
+  .right-section-all-pages,
+  .right-section-all-pages.sidebar-is-expanded,
+  .right-section-all-pages.sidebar-is-collapsed {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  header.header {
+    padding-left: 68px !important;
+  }
+}

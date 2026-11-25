@@ -17,10 +17,24 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, userRole = "superadmin" }) => {
     navigate("/login");
   };
 
-  // ✅ Collapse automatically on tablet & mobile
+  // ✅ Collapse automatically on tablet & mobile and sync on resize
   useEffect(() => {
-    if (window.innerWidth <= 1024) setIsCollapsed(true);
+    const syncLayout = () => {
+      if (window.innerWidth <= 1024) {
+        setIsCollapsed(true);
+      }
+    };
+    syncLayout();
+    window.addEventListener("resize", syncLayout);
+    return () => window.removeEventListener("resize", syncLayout);
   }, [setIsCollapsed]);
+
+  const handleNavigate = (path) => {
+    navigate(path);
+    if (window.innerWidth <= 1024) {
+      setIsCollapsed(true);
+    }
+  };
 
   // ✅ Track active route
   useEffect(() => {
@@ -43,6 +57,8 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, userRole = "superadmin" }) => {
   // ✅ All menu items
   const allNavItems = [
     { label: "Dashboard", icon: "dashboard", path: "/dashboard" },
+    { label: "Plant-OPS Applications", icon: "apps", path: "/dashboard/plant-ops" },
+    { label: "Clients", icon: "business", path: "/dashboard/clients" },
     { label: "Employees", icon: "group", path: `${basePath}/employees` },
     { label: "Visitors", icon: "badge", path: `${basePath}/visitors` },
     { label: "Users", icon: "person", path: `/dashboard/users` },
@@ -68,6 +84,8 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, userRole = "superadmin" }) => {
   const roleAccess = {
     superadmin: [
       "Dashboard",
+      "Plant-OPS Applications",
+      "Clients",
       "Employees",
       "Visitors",
       "Users",
@@ -141,13 +159,23 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, userRole = "superadmin" }) => {
     <>
       {/* ================= MOBILE / TABLET TOGGLE BUTTON ================= */}
       <button
+        type="button"
         className="mobile-sidebar-toggle"
         onClick={() => setIsCollapsed(!isCollapsed)}
+        aria-label={isCollapsed ? "Open navigation menu" : "Close navigation menu"}
       >
         <span className="material-symbols-rounded">
           {isCollapsed ? "menu" : "close"}
         </span>
       </button>
+
+      {!isCollapsed && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setIsCollapsed(true)}
+          aria-hidden="true"
+        />
+      )}
 
       {/* ================= SIDEBAR ================= */}
       <aside className={`sidebar ${isCollapsed ? "collapsed" : ""}`}>
@@ -201,7 +229,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, userRole = "superadmin" }) => {
                       onClick={() =>
                         item.sublinks
                           ? toggleDropdown(item.label)
-                          : navigate(item.path)
+                          : handleNavigate(item.path)
                       }
                       role="button"
                       tabIndex={0}

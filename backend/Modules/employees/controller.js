@@ -133,6 +133,13 @@ const normalizePayload = (data) => {
     status: data.status || "Active",
     role: data.role || "employee",
     location: data.location || data.locationName || "",
+    floor: data.floor !== undefined ? String(data.floor || "").trim() : undefined,
+    vendorCode:
+      data.vendorCode !== undefined
+        ? normalizeVendorCode(data.vendorCode)
+        : undefined,
+    vendorName:
+      data.vendorName !== undefined ? String(data.vendorName || "").trim() : undefined,
     bankDetails: {
       aadharcardnumber:
         data.bankDetails?.aadharcardnumber ||
@@ -221,40 +228,19 @@ const getLatestAttendanceSessionStatus = (records = []) => {
   return attendanceEvents[0]?.status || null;
 };
 
+const ALLOWED_EMPLOYEE_ROLES = [
+  "employee",
+  "supervisor",
+  "manager",
+  "hr",
+  "contractor",
+];
+
 const validateEmployeeData = async (data) => {
   const rules = {
-    firstName: "required|string",
-    lastName: "required|string",
-    gender: "required|string",
-    dob: "required|date",
+    name: "required|string",
     email: "required|email",
-    phone: "required|string",
-
-    "currentAddress.street": "required|string",
-    "currentAddress.city": "required|string",
-    "currentAddress.state": "required|string",
-    "currentAddress.pincode": "required|string",
-
-    "permanentAddress.street": "required|string",
-    "permanentAddress.city": "required|string",
-    "permanentAddress.state": "required|string",
-    "permanentAddress.pincode": "required|string",
-
     employeeId: "required|string",
-    joiningDate: "required|date",
-    designation: "required|string",
-    department: "required|string",
-    section: "required|string",
-    shift: "required|string",
-    employmentType: "required|string",
-    role: "required|string",
-    status: "required|string",
-
-    "bankDetails.aadharcardnumber": "required|string",
-    "bankDetails.pancard": "required|string",
-    "bankDetails.accountNumber": "required|string",
-    "bankDetails.ifscCode": "required|string",
-
   };
   const validator = new Validator(data, rules);
   await validator.validate();
@@ -264,7 +250,7 @@ exports.add = async (req, res) => {
   try {
     const scope = await resolveLocationScope(req);
     const normalized = normalizePayload(req.body);
-    if (scope.isAdmin) {
+    if (scope.isAdmin && scope.location) {
       const requestedLocation = normalizeLocation(normalized.location);
       if (requestedLocation && requestedLocation !== scope.location) {
         return res.status(403).json({
@@ -275,12 +261,14 @@ exports.add = async (req, res) => {
       normalized.location = scope.location;
     }
 
-    normalized.vendorCode = await resolveVendorCodeForLocation(normalized.location);
-    if (normalized.vendorCode === null) {
-      return res.status(400).json({
-        status: false,
-        message: "Unable to resolve location",
-      });
+    const explicitVendorCode = normalizeVendorCode(normalized.vendorCode);
+    if (explicitVendorCode) {
+      normalized.vendorCode = explicitVendorCode;
+    } else if (normalized.location) {
+      const resolvedVendorCode = await resolveVendorCodeForLocation(normalized.location);
+      normalized.vendorCode = resolvedVendorCode || "";
+    } else {
+      normalized.vendorCode = "";
     }
 
     if (req.file) {
@@ -288,25 +276,62 @@ exports.add = async (req, res) => {
     }
     await validateEmployeeData(normalized);
 
-    const existing = await EmployeeModel.findOne({ email: normalized.email });
+    const existing = await EmployeeModel.findOne({
+      $or: [
+        { email: String(normalized.email).trim().toLowerCase() },
+        { employeeId: String(normalized.employeeId).trim() },
+      ],
+    });
     if (existing) {
-      return res
-        .status(400)
-        .json({ status: false, message: "Employee already exists with this email" });
+      return res.status(400).json({
+        status: false,
+        message:
+          existing.employeeId === String(normalized.employeeId).trim()
+            ? "Employee already exists with this Employee ID"
+            : "Employee already exists with this email",
+      });
     }
 
-    const normalizedRole = "employee";
-    let userId = null;
+    const requestedRole = String(normalized.role || "employee").trim().toLowerCase();
+    const normalizedRole = ALLOWED_EMPLOYEE_ROLES.includes(requestedRole)
+      ? requestedRole
+      : "employee";
 
-    // Do not store password; keep null for records created via this flow
+    let userId = null;
+    const rawPassword = String(req.body?.password || "").trim();
+    if (rawPassword) {
+      const normalizedEmail = String(normalized.email).trim().toLowerCase();
+      const existingUser = await UserModel.findOne({ email: normalizedEmail }).select("_id").lean();
+      if (existingUser) {
+        userId = existingUser._id;
+      } else {
+        const hashedPassword = await bcrypt.hash(rawPassword, 10);
+        const createdUser = await UserModel.create({
+          firstName: normalized.firstName || "",
+          lastName: normalized.lastName || "",
+          name: normalized.name,
+          employeeId: normalized.employeeId,
+          email: normalizedEmail,
+          password: hashedPassword,
+          role: normalizedRole,
+          location: normalized.location || "",
+          vendorCode: normalized.vendorCode || "",
+          profileImage: normalized.profileImage || "",
+        });
+        userId = createdUser._id;
+      }
+    }
+
     const data = {
       ...normalized,
+      email: String(normalized.email).trim().toLowerCase(),
       role: normalizedRole,
       password: null,
       userId,
       otpVerified: true,
       otpVerifiedAt: new Date(),
     };
+    if (!data.rfid) delete data.rfid;
 
     const employee = await EmployeeModel.create(data);
 
@@ -332,15 +357,27 @@ exports.add = async (req, res) => {
 exports.getAll = async (req, res) => {
   try {
     const scope = await resolveLocationScope(req);
-    const { page, limit, search, status, department, attendanceStatus, includeUnverified } = req.query;
+    const {
+      page,
+      limit,
+      search,
+      status,
+      department,
+      floor,
+      vendorCode,
+      attendanceStatus,
+      includeUnverified,
+    } = req.query;
     const pageNumber = Math.max(0, (parseInt(page, 10) || 1) - 1);
     const filter = {};
-    if (scope.isAdmin) {
+    if (scope.isAdmin && scope.location) {
       filter.location = scope.location;
       filter.role = { $nin: PRIVILEGED_ROLES };
     }
     if (status) filter["status"] = status;
     if (department) filter["department"] = department;
+    if (floor) filter["floor"] = floor;
+    if (vendorCode) filter["vendorCode"] = normalizeVendorCode(vendorCode);
     if (attendanceStatus) filter["attendanceStatus"] = attendanceStatus;
     const showUnverified =
       includeUnverified === true ||
@@ -358,7 +395,19 @@ exports.getAll = async (req, res) => {
       pageNumber,
       limit,
       [],
-      ["firstName", "lastName", "name", "email", "rfid", "designation", "employeeId", "department"],
+      [
+        "firstName",
+        "lastName",
+        "name",
+        "email",
+        "rfid",
+        "designation",
+        "employeeId",
+        "department",
+        "floor",
+        "vendorCode",
+        "vendorName",
+      ],
       search,
       { role: 1, createdAt: -1, _id: -1 }
     );
@@ -676,8 +725,12 @@ exports.update = async (req, res) => {
     );
 
     const normalized = normalizePayload(req.body);
-    const updates = { ...normalized, role: "employee" };
-    if (scope.isAdmin) {
+    const requestedRole = String(normalized.role || existing.role || "employee").trim().toLowerCase();
+    const resolvedRole = ALLOWED_EMPLOYEE_ROLES.includes(requestedRole)
+      ? requestedRole
+      : existing.role || "employee";
+    const updates = { ...normalized, role: resolvedRole };
+    if (scope.isAdmin && scope.location) {
       const requestedLocation = normalizeLocation(updates.location);
       if (requestedLocation && requestedLocation !== scope.location) {
         return res.status(403).json({
@@ -689,13 +742,15 @@ exports.update = async (req, res) => {
     }
 
     updates.location = normalizeLocation(updates.location) || existing.location || "";
-    updates.vendorCode = await resolveVendorCodeForLocation(updates.location);
-    if (updates.vendorCode === null) {
-      return res.status(400).json({
-        status: false,
-        message: "Unable to resolve location",
-      });
+    if (normalized.vendorCode) {
+      updates.vendorCode = normalizeVendorCode(normalized.vendorCode);
+    } else if (updates.location) {
+      const resolvedVendorCode = await resolveVendorCodeForLocation(updates.location);
+      if (resolvedVendorCode !== null) {
+        updates.vendorCode = resolvedVendorCode;
+      }
     }
+    if (!updates.rfid) delete updates.rfid;
 
     const previous = req.file ? existing : null;
     if (!req.file && !req.body.profileImage && !req.body.profile_image) {

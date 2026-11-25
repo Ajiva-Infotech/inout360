@@ -27,6 +27,10 @@ const userSchemaDefinition = {
     type: String,
     select: false,
   },
+  mustChangePassword: {
+    type: Boolean,
+    default: false,
+  },
   resetOtp: {
     type: String,
     select: false,

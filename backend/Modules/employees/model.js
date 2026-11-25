@@ -52,8 +52,7 @@ const employeeSchema = {
   joiningDate: { type: Date, default: null },
   designation: { type: String, trim: true, default: null },
   department: { type: String, trim: true, default: null },
-  section: { type: String, trim: true, default: null },
-  department: { type: String, trim: true, default: null },
+  floor: { type: String, trim: true, default: null },
   section: { type: String, trim: true, default: null },
   shift: { type: String, trim: true, default: null },
   employmentType: { type: String, default: "Full-time", trim: true },
@@ -64,6 +63,7 @@ const employeeSchema = {
   locationId: { type: mongoose.Schema.Types.ObjectId, ref: "Location", default: null, index: true },
   deviceId: { type: String, trim: true, index: true },
   vendorCode: { type: String, trim: true, uppercase: true, default: "", index: true },
+  vendorName: { type: String, trim: true, default: "" },
   otpVerified: { type: Boolean, default: false, index: true },
   otpVerifiedAt: { type: Date, default: null },
   attendanceStatus: {

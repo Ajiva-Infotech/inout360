@@ -232,21 +232,32 @@ exports.verifyPublic = async (req, res) => {
 exports.add = async (req, res) => {
   try {
     const name = normalizeName(req.body?.name);
-    const vendorCode = normalizeVendorCode(req.body?.vendorCode);
     if (!name) {
-      return res.status(400).json({ status: false, message: "Company name is required" });
+      return res.status(400).json({ status: false, message: "Vendor name is required" });
     }
-    if (!vendorCode) {
-      return res.status(400).json({ status: false, message: "vendorCode is required" });
-    }
+    const vendorCode = normalizeVendorCode(req.body?.vendorCode) || (await generateUniqueVendorCode(name));
 
     const exists = await VendorModel.findOne({ vendorCode }).select("_id").lean();
     if (exists) {
-      return res.status(400).json({ status: false, message: "vendorCode already exists" });
+      return res.status(400).json({ status: false, message: "Vendor code already exists" });
     }
 
-    const vendor = await VendorModel.create({ name, vendorCode, raw: req.body });
-    return res.status(201).json({ status: true, message: "Vendor created", data: format(vendor) });
+    const vendor = await VendorModel.create({
+      name,
+      vendorCode,
+      contactPerson: normalizeName(req.body?.contactPerson),
+      email: String(req.body?.email || "").trim().toLowerCase(),
+      phone: String(req.body?.phone || "").trim(),
+      address: String(req.body?.address || "").trim(),
+      gstNumber: String(req.body?.gstNumber || "").trim().toUpperCase(),
+      status: req.body?.status === "Inactive" ? "Inactive" : "Active",
+      latitude: req.body?.latitude !== undefined && req.body?.latitude !== "" ? Number(req.body.latitude) : undefined,
+      longitude: req.body?.longitude !== undefined && req.body?.longitude !== "" ? Number(req.body.longitude) : undefined,
+      radius: req.body?.radius !== undefined && req.body?.radius !== "" ? Number(req.body.radius) : 500,
+      verified: req.body?.verified !== undefined ? Boolean(req.body.verified) : true,
+      raw: req.body,
+    });
+    return res.status(201).json({ status: true, message: "Vendor created successfully", data: format(vendor) });
   } catch (error) {
     return res.status(500).json({ status: false, message: error.message });
   }
@@ -255,26 +266,50 @@ exports.add = async (req, res) => {
 exports.getAll = async (req, res) => {
   try {
     const search = String(req.query?.search || "").trim();
+    const status = String(req.query?.status || "").trim();
     const filter = {};
+    if (status) {
+      filter.status = status;
+    }
     if (search) {
       filter.$or = [
         { name: { $regex: search, $options: "i" } },
         { vendorCode: { $regex: search, $options: "i" } },
+        { contactPerson: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
       ];
     }
 
     const vendors = await VendorModel.find(filter)
-      .select("name vendorCode")
-      .sort({ name: 1 })
+      .select("-otp -otpExpiry")
+      .sort({ createdAt: -1, name: 1 })
       .lean();
+
+    const formatted = vendors.map((v) => ({
+      id: String(v._id),
+      _id: String(v._id),
+      name: v.name,
+      vendorCode: v.vendorCode,
+      contactPerson: v.contactPerson || v.raw?.registeredBy || "",
+      email: v.email || "",
+      phone: v.phone || "",
+      address: v.address || "",
+      gstNumber: v.gstNumber || "",
+      status: v.status || "Active",
+      verified: Boolean(v.verified),
+      latitude: v.latitude ?? null,
+      longitude: v.longitude ?? null,
+      radius: v.radius ?? 500,
+      createdAt: v.createdAt,
+      updatedAt: v.updatedAt,
+    }));
 
     return res.status(200).json({
       status: true,
-      vendors: vendors.map((v) => ({
-        id: String(v._id),
-        name: v.name,
-        vendorCode: v.vendorCode,
-      })),
+      vendors: formatted,
+      data: formatted,
+      total: formatted.length,
     });
   } catch (error) {
     return res.status(500).json({ status: false, message: error.message });
@@ -285,7 +320,7 @@ exports.getById = async (req, res) => {
   try {
     const { id } = req.params;
     const query = mongoose.isValidObjectId(id) ? { _id: id } : { vendorCode: normalizeVendorCode(id) };
-    const vendor = await VendorModel.findOne(query).select("name vendorCode").lean();
+    const vendor = await VendorModel.findOne(query).select("-otp -otpExpiry").lean();
     if (!vendor) {
       return res.status(404).json({ status: false, message: "Not found" });
     }
@@ -300,18 +335,40 @@ exports.update = async (req, res) => {
     const { id } = req.params;
     const name = normalizeName(req.body?.name);
     if (!name) {
-      return res.status(400).json({ status: false, message: "Company name is required" });
+      return res.status(400).json({ status: false, message: "Vendor name is required" });
     }
+
+    const updates = {
+      name,
+      raw: req.body,
+    };
+    if (req.body?.vendorCode) {
+      const nextCode = normalizeVendorCode(req.body.vendorCode);
+      const conflict = await VendorModel.findOne({ vendorCode: nextCode, _id: { $ne: id } }).select("_id").lean();
+      if (conflict) {
+        return res.status(400).json({ status: false, message: "Vendor code already exists" });
+      }
+      updates.vendorCode = nextCode;
+    }
+    if (req.body?.contactPerson !== undefined) updates.contactPerson = normalizeName(req.body.contactPerson);
+    if (req.body?.email !== undefined) updates.email = String(req.body.email || "").trim().toLowerCase();
+    if (req.body?.phone !== undefined) updates.phone = String(req.body.phone || "").trim();
+    if (req.body?.address !== undefined) updates.address = String(req.body.address || "").trim();
+    if (req.body?.gstNumber !== undefined) updates.gstNumber = String(req.body.gstNumber || "").trim().toUpperCase();
+    if (req.body?.status !== undefined) updates.status = req.body.status === "Inactive" ? "Inactive" : "Active";
+    if (req.body?.latitude !== undefined && req.body?.latitude !== "") updates.latitude = Number(req.body.latitude);
+    if (req.body?.longitude !== undefined && req.body?.longitude !== "") updates.longitude = Number(req.body.longitude);
+    if (req.body?.radius !== undefined && req.body?.radius !== "") updates.radius = Number(req.body.radius);
 
     const vendor = await VendorModel.findByIdAndUpdate(
       id,
-      { $set: { name, raw: req.body } },
+      { $set: updates },
       { new: true, runValidators: true }
     ).lean();
     if (!vendor) {
       return res.status(404).json({ status: false, message: "Not found" });
     }
-    return res.status(200).json({ status: true, message: "Vendor updated", data: format(vendor) });
+    return res.status(200).json({ status: true, message: "Vendor updated successfully", data: format(vendor) });
   } catch (error) {
     return res.status(500).json({ status: false, message: error.message });
   }

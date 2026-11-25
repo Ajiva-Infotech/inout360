@@ -2,9 +2,12 @@ const { ajModel } = require("../../common/classes/Model");
 
 const vendorSchemaDefinition = {
   name: { type: String, required: true, trim: true },
+  contactPerson: { type: String, trim: true, default: "" },
   email: { type: String, trim: true, lowercase: true },
   phone: { type: String, trim: true },
   address: { type: String, trim: true },
+  gstNumber: { type: String, trim: true, uppercase: true, default: "" },
+  status: { type: String, enum: ["Active", "Inactive"], default: "Active" },
   latitude: { type: Number },
   longitude: { type: Number },
   radius: { type: Number, default: 500 },

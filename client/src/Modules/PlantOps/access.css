@@ -1,0 +1,22 @@
+.plant-admin { --po-navy: #0d2b45; --po-border: #d6e1ea; color: #172a3d; }
+.plant-admin h1, .plant-admin h2, .plant-admin h3 { line-height: 1.2; margin: 0 0 10px; font-weight: 700; }
+.plant-admin h1 { font-size: 1.8rem; }
+.plant-admin h2 { font-size: 1.3rem; }
+.plant-admin h3 { font-size: 1.08rem; }
+.plant-admin p { margin: .5rem 0 1rem; }
+.plant-admin-row { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; }
+.plant-admin-row > label { flex: 1 1 230px; min-width: 0; }
+.plant-admin-panel, .plant-admin-block { border: 1px solid var(--po-border); border-radius: 10px; background: #fff; padding: 15px; margin-top: 12px; min-width: 0; }
+.plant-admin-login { max-width: 480px; }
+.plant-admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 10px; }
+.plant-admin label { display: grid; gap: 3px; font-weight: 600; margin: 0 0 9px; }
+.plant-admin input:not([type="checkbox"]), .plant-admin select { width: 100%; min-height: 42px; padding: 7px; border-radius: 7px; border: 1px solid #8395a6; background: #fff; color: #172a3d; }
+.plant-admin fieldset { padding: 9px; border: 1px solid var(--po-border); margin: 10px 0; border-radius: 8px; min-width: 0; }
+.plant-admin legend { font-weight: 700; padding: 0 4px; }
+.plant-admin .plant-admin-check { display: flex; align-items: center; gap: 8px; min-height: 36px; }
+.plant-admin button { min-height: 40px; border: 1px solid var(--po-navy); background: var(--po-navy); color: #fff; padding: 7px 11px; border-radius: 7px; font-weight: 600; }
+.plant-admin button:disabled { opacity: .55; cursor: not-allowed; }
+.plant-admin button.plant-admin-secondary { background: #fff; color: var(--po-navy); }
+.plant-admin li { padding: 4px 0; overflow-wrap: anywhere; }
+.plant-admin li button { margin-left: 8px; }
+.plant-admin-error { background: #fff1eb; color: #842b16; padding: 9px; border-radius: 6px; }

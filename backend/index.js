@@ -27,13 +27,27 @@ app.use(async (req, res, next) => {
   }
 });
 app.use(responseTimeLogger);
+const redactSensitive = (value) => {
+  if (!value || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map(redactSensitive);
+  const redacted = {};
+  for (const [key, val] of Object.entries(value)) {
+    if (/password|secret|token/i.test(key)) {
+      redacted[key] = "[REDACTED]";
+    } else {
+      redacted[key] = redactSensitive(val);
+    }
+  }
+  return redacted;
+};
+
 app.use((req, res, next) => {
   const start = Date.now();
 
-  // Capture request data
+  // Capture request data (with sensitive fields redacted)
   const { method, originalUrl, body, query } = req;
   console.log(`➡️ ${method} ${originalUrl}`);
-  console.log("📦 Request body:", body);
+  console.log("📦 Request body:", redactSensitive(body));
   console.log("🔍 Query params:", query);
 
   // Hook into response end to get response time
@@ -45,15 +59,17 @@ app.use((req, res, next) => {
 
   next();
 });
+const extraCorsOrigins = (process.env.CORS_EXTRA_ORIGINS || "")
+  .split(",")
+  .map((item) => item.trim())
+  .filter(Boolean);
 const corsOptions = {
   origin: [
-    // "http://localhost:3000",
-    // "http://localhost:3001",
-    // "http://localhost:3002",
-    // "http://localhost:5000",
-    // "http://localhost:4001",
+    /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/,
     "https://pidiliteapp.ajivainfotech.com",
-    "https://pil.ajivainfotech.com"
+    "https://pil.ajivainfotech.com",
+    "https://pidilite.ajivainfotech.com",
+    ...extraCorsOrigins,
   ],
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
   allowedHeaders: "Content-Type, Authorization",
@@ -108,7 +124,8 @@ const globalLimiter = rateLimit({
       "/api/location/coords",
       "/api/upload",
       "/api/device/register",
-      "/api/activity/notifications/unread-count"
+      "/api/activity/notifications/unread-count",
+      "/api/plant-ops/v1/workspace/ops/notifications"
     ];
     return skipList.some(path => req.path.startsWith(path));
   },

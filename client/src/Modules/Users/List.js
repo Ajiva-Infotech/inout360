@@ -179,21 +179,21 @@ const GetUsers = () => {
   ];
 
   return (
-    <div className="relative p-4">
-      <div className="flex justify-between items-center mb-4">
+    <div className="relative p-2 sm:p-4">
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
         <h2 className="text-xl font-bold">System Users List</h2>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           <input
             type="text"
             placeholder="Search..."
             value={searchTerm}
             onChange={handleSearchChange}
-            className="border rounded p-2"
+            className="border rounded p-2 flex-1 sm:flex-initial min-w-[180px]"
           />
           <button
             onClick={toggleAddUserForm}
-            className="crm-buttonsection flex items-center gap-2"
+            className="crm-buttonsection flex items-center gap-2 whitespace-nowrap"
           >
             + Add User
           </button>

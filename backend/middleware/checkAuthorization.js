@@ -110,6 +110,7 @@ const extractModuleFromUrl = (url) => {
 
 // Helper to check if user belongs to department or sub-department
 const isUserInDepartment = (userDepartments, dataDepartmentId) => {
+  if (!Array.isArray(userDepartments)) return true;
   return userDepartments.includes(dataDepartmentId);
 };
 
