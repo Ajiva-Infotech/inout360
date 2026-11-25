@@ -69,6 +69,7 @@ const corsOptions = {
     "https://pidiliteapp.ajivainfotech.com",
     "https://pil.ajivainfotech.com",
     "https://pidilite.ajivainfotech.com",
+    "https://plantops.ajivainfotech.com",
     ...extraCorsOrigins,
   ],
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
